@@ -9,8 +9,9 @@
 import UIKit
 //import CoreData
 import RealmSwift
+import ChameleonFramework
 
-class TodoListViewController: UITableViewController {
+class TodoListViewController: SwipeTableViewController {
 
   //var itemArray = [Item]()
   let realm = try! Realm()
@@ -22,6 +23,8 @@ class TodoListViewController: UITableViewController {
   }
   var selectedCategoryName : String = ""
   
+  @IBOutlet weak var searchBar: UISearchBar!
+  
   //let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
   
   //let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
@@ -29,11 +32,44 @@ class TodoListViewController: UITableViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
     // Do any additional setup after loading the view, typically from a nib.
-    
-    selectedCategoryName = selectedCategory?.name ?? "Unknown"
-    self.navigationItem.title = selectedCategoryName
     //print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
     //loadItems()
+    tableView.separatorStyle = .none
+  }
+  
+  override func viewWillAppear(_ animated: Bool) {
+    
+    self.navigationItem.title = selectedCategory?.name ?? "Unknown"
+//    if let colorHex = selectedCategory?.color {
+//      navigationController?.navigationBar.barTintColor = UIColor(hexString: colorHex)
+//      if let backgroundColor = navigationController?.navigationBar.barTintColor {
+//        let textColor = ContrastColorOf(backgroundColor, returnFlat: true)
+//        searchBar.barTintColor = backgroundColor
+//        navigationController?.navigationBar.largeTitleTextAttributes = [NSAttributedStringKey.foregroundColor: textColor]
+//        navigationController?.navigationBar.tintColor = textColor
+//      }
+//    }
+    updateNavBar(withHexCode: selectedCategory?.color ?? defaultNavBarColor)
+  }
+  
+  override func viewWillDisappear(_ animated: Bool) {
+    updateNavBar(withHexCode: defaultNavBarColor)
+  }
+  
+  //MARK: Nav Bar Setup Methods
+  
+  func updateNavBar(withHexCode colorString: String) {
+    
+    guard let navBar = navigationController?.navigationBar else { return }
+    guard let bgColor = UIColor(hexString: colorString) else { return }
+    let textColor = ContrastColorOf(bgColor, returnFlat: true)
+    
+    navBar.barTintColor = bgColor
+    searchBar.barTintColor = bgColor
+    navBar.largeTitleTextAttributes = [NSAttributedStringKey.foregroundColor: textColor]
+    navBar.titleTextAttributes = [NSAttributedStringKey.foregroundColor: textColor]
+    navBar.tintColor = textColor
+    
   }
 
   //MARK - Tableview Datasource Methods
@@ -45,11 +81,15 @@ class TodoListViewController: UITableViewController {
   
   override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     
-    let cell = tableView.dequeueReusableCell(withIdentifier: "TodoItemCell", for: indexPath)
+    let cell = super.tableView(tableView, cellForRowAt: indexPath)
     
     if let item = items?[indexPath.row] {
       cell.textLabel?.text = item.title
-      cell.accessoryType = item.done ? .checkmark : .none
+      if let bgColor = UIColor(hexString: (self.selectedCategory!.color))?.darken(byPercentage: (CGFloat(indexPath.row) / CGFloat(items!.count)) / 2) {
+        cell.backgroundColor = bgColor
+        cell.textLabel?.textColor = ContrastColorOf(bgColor, returnFlat: true)
+        cell.accessoryType = item.done ? .checkmark : .none
+      }
     } else {
       cell.textLabel?.text = "No Items Added"
     }
@@ -90,6 +130,7 @@ class TodoListViewController: UITableViewController {
   @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
     
     var textField = UITextField()
+    //print(sender)
     
     let alert = UIAlertController(title: "Add New \(selectedCategoryName) Item", message: "", preferredStyle: .alert)
     
@@ -185,6 +226,17 @@ class TodoListViewController: UITableViewController {
     tableView.reloadData()
   }
   
+  override func updateModels(at indexPath: IndexPath) {
+    if let item = items?[indexPath.row] {
+      do {
+        try realm.write {
+          realm.delete(item)
+        }
+      } catch {
+        print("Error deleting item: \(error)")
+      }
+    }
+  }
   
 }
 

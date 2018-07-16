@@ -8,8 +8,9 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
+class CategoryViewController: SwipeTableViewController {
   
   //var categoryArray = [Category]()
   //let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
@@ -19,8 +20,15 @@ class CategoryViewController: UITableViewController {
   override func viewDidLoad() {
     super.viewDidLoad()
 
+    tableView.separatorStyle = .none
     loadCategories()
         
+  }
+  
+  override func viewWillAppear(_ animated: Bool) {
+//    navigationController?.navigationBar.barTintColor = UIColor(hexString: "#0096FF")
+//    navigationController?.navigationBar.largeTitleTextAttributes = [NSAttributedStringKey.foregroundColor: FlatWhite()]
+//    navigationController?.navigationBar.tintColor = FlatWhite()
   }
   
   //MARK: - TableView Datasource Methods
@@ -32,11 +40,23 @@ class CategoryViewController: UITableViewController {
   }
   
   override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    
-    let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
+    let cell = super.tableView(tableView, cellForRowAt: indexPath)
     
     //cell.textLabel?.text = categoryArray[indexPath.row].name
     cell.textLabel?.text = categories?[indexPath.row].name ?? "No Categories Added Yet"
+    
+    if let bgColor = UIColor(hexString: categories![indexPath.row].color) {
+      cell.backgroundColor = bgColor
+    } else if let category = categories?[indexPath.row] {
+      cell.backgroundColor = UIColor(hexString: self.updateColorFor(category: category, hexColorString: UIColor.randomFlat.hexValue()))
+    } else {
+      cell.backgroundColor = UIColor(hexString: "#DDDDDD")
+    }
+    
+    if let bgColor = cell.backgroundColor {
+      cell.textLabel?.textColor = ContrastColorOf(bgColor, returnFlat: true)
+    }
+    
     return cell
   }
   
@@ -55,6 +75,7 @@ class CategoryViewController: UITableViewController {
         if newCategoryName.count > 0 {
           let newCategory = Category()
           newCategory.name = newCategoryName
+          newCategory.color = UIColor.randomFlat.hexValue()
           //let newCategory = Category(context: self.context)
           //newCategory.name = newCategoryName
           //self.categoryArray.append(newCategory)
@@ -93,6 +114,20 @@ class CategoryViewController: UITableViewController {
     
     loadCategories()
     
+  }
+  
+  //MARK: Update Category
+  func updateColorFor(category: Category, hexColorString: String) -> String {
+    
+    do {
+      try realm.write {
+        category.color = hexColorString
+      }
+    } catch {
+      print("Error saving new hex color string to category: \(error)")
+    }
+    
+    return hexColorString
   }
   
   //MARK - Retrieve Data
@@ -135,4 +170,30 @@ class CategoryViewController: UITableViewController {
     //  destinationVC.selectedCategory = categoryArray[indexPath.row]
     //}
   }
+  
+  func delete(category: Category) {
+    
+    do {
+      try realm.write {
+        realm.delete(category.items)
+        realm.delete(category)
+      }
+    } catch {
+      print("Error deleting category: \(error)")
+    }
+    
+    //loadCategories()
+  }
+  
+  override func updateModels(at indexPath: IndexPath) {
+    if let category = self.categories?[indexPath.row] {
+      self.delete(category: category)
+    }
+  }
+  
 }
+
+
+
+
+
